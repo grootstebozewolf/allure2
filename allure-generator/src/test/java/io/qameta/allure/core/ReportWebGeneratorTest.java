@@ -112,8 +112,10 @@ class ReportWebGeneratorTest {
         assertThat(indexHtml)
                 .isRegularFile()
                 .content(StandardCharsets.UTF_8)
-                .as("ALLURE_NO_ANALYTICS=1 (the value documented in Analytics.md) "
-                        + "should disable HTML-side analytics like it disables the Java side")
+                .as(
+                        "ALLURE_NO_ANALYTICS=1 (the value documented in Analytics.md) "
+                                + "should disable HTML-side analytics like it disables the Java side"
+                )
                 .doesNotContain("googletagmanager");
     }
 

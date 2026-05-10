@@ -303,9 +303,11 @@ class Allure2PluginTest {
         assertThat(testResults)
                 .hasSize(1)
                 .first()
-                .satisfies(result -> assertThat(result.<List<String>>getExtraBlock("titlePath"))
-                        .as("titlePath from on-disk schema should be preserved on the entity")
-                        .containsExactly("Suite", "Subsuite", "Group"));
+                .satisfies(
+                        result -> assertThat(result.<List<String>>getExtraBlock("titlePath"))
+                                .as("titlePath from on-disk schema should be preserved on the entity")
+                                .containsExactly("Suite", "Subsuite", "Group")
+                );
     }
 
     /**
