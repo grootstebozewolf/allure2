@@ -250,6 +250,65 @@ class Allure2PluginTest {
     }
 
     /**
+     * RED TEST — documents a known gap.
+     * <p>
+     * The on-disk Allure 2 schema (defined in allure-java's
+     * {@code io.qameta.allure.model.TestResult}) carries {@code testCaseId},
+     * which Allure 3's reader maps onto the same identity slot it calls
+     * {@code testId}. Allure 2's {@code Allure2Plugin#convert} never reads
+     * {@code result.getTestCaseId()}, so the value is silently dropped on
+     * import even though the entity has a {@code testId} field ready for it.
+     * <p>
+     * Expected behaviour: when a {@code -result.json} carries {@code testCaseId}
+     * and no {@code testId}, the parsed entity's {@code testId} is populated
+     * from {@code testCaseId}.
+     */
+    @Description
+    @Test
+    void shouldPropagateTestCaseIdToTestId() throws Exception {
+        Set<TestResult> testResults = process(
+                "allure2/test-case-id.json", generateTestResultName()
+        ).getResults();
+
+        assertThat(testResults)
+                .hasSize(1)
+                .first()
+                .extracting(TestResult::getTestId)
+                .as("on-disk testCaseId should populate entity.TestResult#testId")
+                .isEqualTo("TC-42");
+    }
+
+    /**
+     * RED TEST — documents a known gap.
+     * <p>
+     * The on-disk Allure 2 schema carries {@code titlePath}, used by
+     * Allure 3's reader to render hierarchical suite/group context.
+     * Allure 2's {@code Allure2Plugin#convert} never reads
+     * {@code result.getTitlePath()}, so the data is dropped on import and
+     * the rendered v2 report cannot reflect any structure that downstream
+     * test frameworks have already produced.
+     * <p>
+     * Expected behaviour: at minimum, {@code titlePath} survives parsing
+     * and is reachable from the entity (here asserted via the generic
+     * extra-block channel as a placeholder for whatever final API the
+     * project chooses).
+     */
+    @Description
+    @Test
+    void shouldPreserveTitlePathFromOnDiskSchema() throws Exception {
+        Set<TestResult> testResults = process(
+                "allure2/title-path.json", generateTestResultName()
+        ).getResults();
+
+        assertThat(testResults)
+                .hasSize(1)
+                .first()
+                .satisfies(result -> assertThat(result.<List<String>>getExtraBlock("titlePath"))
+                        .as("titlePath from on-disk schema should be preserved on the entity")
+                        .containsExactly("Suite", "Subsuite", "Group"));
+    }
+
+    /**
      * Verifies processing null stage time for Allure 2 parsing.
      */
     @Description

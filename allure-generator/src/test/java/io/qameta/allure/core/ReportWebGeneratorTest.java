@@ -80,6 +80,76 @@ class ReportWebGeneratorTest {
     }
 
     /**
+     * RED TEST — documents a known gap.
+     * <p>
+     * Analytics.md instructs users to opt out via
+     * {@code export ALLURE_NO_ANALYTICS=1}. The Java side of the pipeline
+     * ({@code GaPlugin}) reads the variable as "any non-null value disables",
+     * which honours that documented value. The HTML side
+     * ({@code ReportWebGenerator}) reads it as
+     * {@code Boolean.parseBoolean(value)}, which only treats {@code "true"}
+     * (case-insensitive) as a disable signal — {@code "1"}, {@code ""},
+     * {@code "yes"}, and {@code "0"} all leave the gtag.js script in the
+     * rendered report.
+     * <p>
+     * Expected behaviour: the documented opt-out value fully removes the
+     * analytics surface from the rendered HTML, matching the server-side
+     * behaviour.
+     */
+    @Description
+    @SetEnvironmentVariable(
+            key = "ALLURE_NO_ANALYTICS",
+            value = "1"
+    )
+    @Test
+    void shouldRespectDocumentedAllureNoAnalyticsValue(@TempDir final Path tempDirectory) {
+        final Configuration configuration = ConfigurationBuilder.empty().build();
+        final InMemoryReportStorage reportStorage = new InMemoryReportStorage();
+        generateReport(configuration, reportStorage, tempDirectory);
+
+        final Path indexHtml = tempDirectory.resolve("index.html");
+
+        assertThat(indexHtml)
+                .isRegularFile()
+                .content(StandardCharsets.UTF_8)
+                .as("ALLURE_NO_ANALYTICS=1 (the value documented in Analytics.md) "
+                        + "should disable HTML-side analytics like it disables the Java side")
+                .doesNotContain("googletagmanager");
+    }
+
+    /**
+     * RED TEST — documents a known gap.
+     * <p>
+     * The FreeMarker {@code Configuration} used to render
+     * {@code index.html.ftl} is constructed in
+     * {@code FreemarkerContext} without an output format, leaving HTML
+     * auto-escaping disabled. Any user-controlled string the report
+     * generator interpolates into the template — most directly
+     * {@code reportName} via the {@code <title>} tag — is rendered raw.
+     * <p>
+     * Expected behaviour: a malicious-looking {@code reportName} appears
+     * HTML-escaped in the generated document, not as live markup.
+     */
+    @Description
+    @Test
+    void shouldEscapeHtmlInReportName(@TempDir final Path tempDirectory) {
+        final String hostile = "<script>alert('xss')</script>";
+        final Configuration configuration = ConfigurationBuilder.empty()
+                .withReportName(hostile)
+                .build();
+        final InMemoryReportStorage reportStorage = new InMemoryReportStorage();
+        generateReport(configuration, reportStorage, tempDirectory);
+
+        final Path indexHtml = tempDirectory.resolve("index.html");
+
+        assertThat(indexHtml)
+                .isRegularFile()
+                .content(StandardCharsets.UTF_8)
+                .as("hostile reportName must not appear as live HTML in the generated report")
+                .doesNotContain(hostile);
+    }
+
+    /**
      * Verifies setting language for web report generation.
      */
     @Description
